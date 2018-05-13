@@ -7,6 +7,8 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <linux/videodev2.h>
+#include <QDebug>
+#include <libv4lconvert.h>
 
 static const int v4l2BufferNum = 2;
 
@@ -16,7 +18,9 @@ struct CameraCaptureThread::Private {
 	int fd;
 	void *v4l2Buffer[v4l2BufferNum];
 	uint32_t v4l2BufferSize[v4l2BufferNum];
-	struct v4l2_format fmt;
+	v4l2_format srcfmt;
+	v4l2_format dstfmt;
+	v4lconvert_data *convert_data = nullptr;
 };
 
 CameraCaptureThread::CameraCaptureThread()
@@ -35,12 +39,16 @@ void CameraCaptureThread::startCapture()
 	m->fd = open("/dev/video0", O_RDWR);
 
 	/* 1. フォーマット指定。640x480のRGB24形式でキャプチャしてください */
-	memset(&m->fmt, 0, sizeof(m->fmt));
-	m->fmt.type                = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-	m->fmt.fmt.pix.width       = 640;
-	m->fmt.fmt.pix.height      = 480;
-	m->fmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
-	ioctl(m->fd, VIDIOC_S_FMT, &m->fmt);
+	v4l2_format tmpfmt;
+	memset(&tmpfmt, 0, sizeof(tmpfmt));
+	tmpfmt.type                = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	ioctl(m->fd, VIDIOC_G_FMT, &tmpfmt);
+	m->dstfmt = m->srcfmt = tmpfmt;
+	m->dstfmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;
+
+	m->convert_data = v4lconvert_create(m->fd);
+	v4lconvert_try_format(m->convert_data, &m->dstfmt, &m->srcfmt);
+	m->srcfmt = tmpfmt;
 
 	/* 2. バッファリクエスト。バッファを2面確保してください */
 	struct v4l2_requestbuffers req;
@@ -106,7 +114,9 @@ void CameraCaptureThread::copyBuffer()
 		/* 9. create QImage object */
 		{
 			QMutexLocker lock(&m->mutex);
-			m->image = QImage((uchar const *)m->v4l2Buffer[buf.index], m->fmt.fmt.pix.width, m->fmt.fmt.pix.height, m->fmt.fmt.pix.width * 3, QImage::Format_RGB888);
+			m->image = QImage(m->dstfmt.fmt.pix.width, m->dstfmt.fmt.pix.height, QImage::Format_RGB888);
+			v4lconvert_convert(m->convert_data, &m->srcfmt, &m->dstfmt, (unsigned char *)m->v4l2Buffer[buf.index], buf.bytesused, m->image.bits(), m->dstfmt.fmt.pix.sizeimage);
+//			m->image = QImage((uchar const *)m->v4l2Buffer[buf.index], m->dstfmt.fmt.pix.width, m->dstfmt.fmt.pix.height, m->dstfmt.fmt.pix.width * 3, QImage::Format_RGB888);
 		}
 
 		/* 10. 先ほどデキューしたバッファを、再度エンキューする。カメラデバイスはこのバッファに対して再びキャプチャした画を書き込む */
@@ -125,6 +135,7 @@ void CameraCaptureThread::stopCapture()
 	for (uint32_t i = 0; i < v4l2BufferNum; i++) munmap(m->v4l2Buffer[i], m->v4l2BufferSize[i]);
 
 	/* 13. デバイスファイルを閉じる */
+	v4lconvert_destroy(m->convert_data);
 	close(m->fd);
 }
 
