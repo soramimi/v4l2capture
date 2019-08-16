@@ -4,8 +4,10 @@
 #include <QDebug>
 #include <QMutex>
 #include <QThread>
-
+#include <QKeyEvent>
+#include <QFileDialog>
 #include "CameraCaptureThread.h"
+#include <QMessageBox>
 
 struct MainWindow::Private {
 	CameraCaptureThread capture_thread;
@@ -36,4 +38,25 @@ void MainWindow::timerEvent(QTimerEvent *event)
 	if (!image.isNull()) {
 		ui->widget->setImage(image);
 	}
+}
+
+void MainWindow::keyPressEvent(QKeyEvent *e)
+{
+	int k = e->key();
+	if (k == Qt::Key_S) {
+		if (e->modifiers() & Qt::ControlModifier) {
+			saveas();
+		}
+	}
+	QMainWindow::keyPressEvent(e);
+
+}
+
+void MainWindow::saveas()
+{
+	QImage image = ui->widget->image();
+	if (image.isNull()) return;
+	QString path = QFileDialog::getSaveFileName(this, "Save as");
+	if (path.isEmpty()) return;
+	image.save(path);
 }

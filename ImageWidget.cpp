@@ -13,6 +13,11 @@ void ImageWidget::setImage(QImage image)
 	update();
 }
 
+QImage ImageWidget::image() const
+{
+	return image_;
+}
+
 void ImageWidget::paintEvent(QPaintEvent *event)
 {
 	int iw = image_.width();

@@ -9,6 +9,7 @@
 #include <linux/videodev2.h>
 #include <QDebug>
 #include <libv4lconvert.h>
+#include <stdint.h>
 
 static const int v4l2BufferNum = 2;
 
@@ -41,7 +42,7 @@ void CameraCaptureThread::startCapture()
 	/* 1. フォーマット指定。640x480のRGB24形式でキャプチャしてください */
 	v4l2_format tmpfmt;
 	memset(&tmpfmt, 0, sizeof(tmpfmt));
-	tmpfmt.type                = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+	tmpfmt.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 	ioctl(m->fd, VIDIOC_G_FMT, &tmpfmt);
 	m->dstfmt = m->srcfmt = tmpfmt;
 	m->dstfmt.fmt.pix.pixelformat = V4L2_PIX_FMT_RGB24;

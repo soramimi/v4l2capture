@@ -1,13 +1,8 @@
-#-------------------------------------------------
-#
-# Project created by QtCreator 2017-12-03T19:08:22
-#
-#-------------------------------------------------
-
-QT       += core gui widgets
 
 TARGET = Hoge
 TEMPLATE = app
+QT += core gui widgets
+CONFIG += c++11
 
 LIBS += -lv4lconvert
 

@@ -12,6 +12,7 @@ public:
 	explicit ImageWidget(QWidget *parent = 0);
 
 	void setImage(QImage image);
+	QImage image() const;
 signals:
 
 public slots:
